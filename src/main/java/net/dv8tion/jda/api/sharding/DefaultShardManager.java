@@ -818,5 +818,11 @@ public class DefaultShardManager implements ShardManager {
         public void cancel() {
             future.cancel(false);
         }
+
+        @Nonnull
+        @Override
+        public Exception getCreationStack() {
+            return new Exception("ShardTotalTask creation stack trace");
+        }
     }
 }
