@@ -299,13 +299,88 @@ public final class SequentialRestRateLimiter implements RestRateLimiter {
                     // Handle global rate limit if necessary
                     if (global) {
                         config.getGlobalRateLimit().setClassic(now + retryAfter);
-                        log.error("Encountered global rate limit! Retry-After: {} ms Scope: {}", retryAfter, scope);
+                        
+                        // Collect pending requests info from this bucket
+                        Queue<Work> pendingRequests = bucket.getRequests();
+                        int pendingCount = pendingRequests.size();
+                        
+                        // Get the first pending request's stack trace for debugging
+                        Work firstPending = pendingRequests.peek();
+                        Exception creationStack = firstPending != null ? firstPending.getCreationStack() : null;
+                        
+                        // Count total pending requests across all buckets
+                        int totalPending = buckets.values().stream()
+                                .mapToInt(b -> b.getRequests().size())
+                                .sum();
+                        
+                        log.error("Encountered global rate limit!" +
+                                "\n\tRetry-After: {} ms" +
+                                "\n\tScope: {}" +
+                                "\n\tRoute: {}" +
+                                "\n\tCompiled Route: {}" +
+                                "\n\tMajor Parameters: {}" +
+                                "\n\tBucket: {}" +
+                                "\n\tBucket Hash: {}" +
+                                "\n\tLimit: {}" +
+                                "\n\tRemaining: {}" +
+                                "\n\tReset-After: {}" +
+                                "\n\tPending in this bucket: {}" +
+                                "\n\tTotal pending across all buckets: {}" +
+                                "\n\tTotal active buckets: {}",
+                                retryAfter,
+                                scope,
+                                baseRoute,
+                                route.getCompiledRoute(),
+                                route.getMajorParameters(),
+                                bucket.bucketId,
+                                hash,
+                                headers.get(LIMIT_HEADER),
+                                headers.get(REMAINING_HEADER),
+                                headers.get(RESET_AFTER_HEADER),
+                                pendingCount,
+                                totalPending,
+                                buckets.size());
+                        
+                        // Log the stack trace of the first pending request to help identify the source
+                        if (creationStack != null) {
+                            log.error("Stack trace of a pending request in this bucket:", creationStack);
+                        }
                     }
                     // Handle cloudflare rate limits,
                     // this applies to all routes and uses seconds for retry-after
                     else if (cloudflare) {
                         config.getGlobalRateLimit().setCloudflare(now + retryAfter);
-                        log.error("Encountered cloudflare rate limit! Retry-After: {} s", retryAfter / 1000);
+                        
+                        // Collect pending requests info
+                        Queue<Work> cfPendingRequests = bucket.getRequests();
+                        int cfPendingCount = cfPendingRequests.size();
+                        Work cfFirstPending = cfPendingRequests.peek();
+                        Exception cfCreationStack = cfFirstPending != null ? cfFirstPending.getCreationStack() : null;
+                        int cfTotalPending = buckets.values().stream()
+                                .mapToInt(b -> b.getRequests().size())
+                                .sum();
+                        
+                        log.error("Encountered cloudflare rate limit!" +
+                                "\n\tRetry-After: {} s" +
+                                "\n\tRoute: {}" +
+                                "\n\tCompiled Route: {}" +
+                                "\n\tMajor Parameters: {}" +
+                                "\n\tBucket: {}" +
+                                "\n\tPending in this bucket: {}" +
+                                "\n\tTotal pending across all buckets: {}" +
+                                "\n\tTotal active buckets: {}",
+                                retryAfter / 1000,
+                                baseRoute,
+                                route.getCompiledRoute(),
+                                route.getMajorParameters(),
+                                bucket.bucketId,
+                                cfPendingCount,
+                                cfTotalPending,
+                                buckets.size());
+                        
+                        if (cfCreationStack != null) {
+                            log.error("Stack trace of a pending request in this bucket:", cfCreationStack);
+                        }
                     }
                     // Handle hard rate limit, pretty much just log that it happened
                     else {

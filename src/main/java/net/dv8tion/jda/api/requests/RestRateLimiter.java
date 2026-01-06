@@ -160,6 +160,15 @@ public interface RestRateLimiter {
          * <br>Primarily used for {@link JDA#cancelRequests()}.
          */
         void cancel();
+
+        /**
+         * Gets the stack trace captured at the time this request was created.
+         * <br>Useful for debugging rate limit issues.
+         *
+         * @return The exception containing the creation stack trace
+         */
+        @Nonnull
+        Exception getCreationStack();
     }
 
     /**

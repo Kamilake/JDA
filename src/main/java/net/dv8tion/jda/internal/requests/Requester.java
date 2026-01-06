@@ -408,6 +408,12 @@ public class Requester {
             request.cancel();
         }
 
+        @Nonnull
+        @Override
+        public Exception getCreationStack() {
+            return request.getCreationStack();
+        }
+
         private void handleResponse(okhttp3.Response response, Set<String> rays) {
             done = true;
             request.handleResponse(new Response(response, -1, rays));
