@@ -59,6 +59,7 @@ public class Request<T> {
     private final boolean priority;
 
     private final String localReason;
+    private final Exception creationStack;
 
     private boolean done = false;
     private boolean isCancelled = false;
@@ -95,6 +96,7 @@ public class Request<T> {
 
         this.api = (JDAImpl) restAction.getJDA();
         this.localReason = ThreadLocalReason.getCurrent();
+        this.creationStack = new Exception("Request creation stack trace for " + route);
     }
 
     private void cleanup() {
@@ -199,6 +201,17 @@ public class Request<T> {
     @Nonnull
     public JDAImpl getJDA() {
         return api;
+    }
+
+    /**
+     * Gets the stack trace captured at the time this request was created.
+     * Useful for debugging rate limit issues.
+     *
+     * @return The exception containing the creation stack trace
+     */
+    @Nonnull
+    public Exception getCreationStack() {
+        return creationStack;
     }
 
     @Nonnull
