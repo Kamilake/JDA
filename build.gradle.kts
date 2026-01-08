@@ -130,12 +130,10 @@ base {
     archivesName.set("JDA")
 }
 
-configure<SourceSetContainer> {
-    register("examples") {
-        java.srcDir("src/examples/java")
-        compileClasspath += sourceSets["main"].output
-        runtimeClasspath += sourceSets["main"].output
-    }
+val examples by sourceSets.creating {
+    java.srcDir("src/examples/java")
+    compileClasspath += sourceSets["main"].output
+    runtimeClasspath += sourceSets["main"].output
 }
 
 val testJava8 by sourceSets.creating {
@@ -148,7 +146,6 @@ val testJava8 by sourceSets.creating {
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(25))
-        vendor.set(JvmVendorSpec.ADOPTIUM)
     }
 }
 
@@ -174,6 +171,10 @@ val testJava8Implementation by configurations.getting {
 
 val testJava8RuntimeOnly by configurations.getting {
     extendsFrom(configurations.runtimeOnly.get())
+}
+
+val examplesImplementation by configurations.getting {
+    extendsFrom(configurations.implementation.get())
 }
 
 repositories {
@@ -220,6 +221,8 @@ dependencies {
         addAll(configurations["implementation"].allDependencies)
         addAll(configurations["compileOnly"].allDependencies)
     }
+
+    examplesImplementation(libs.jdave)
 
     testImplementation(libs.bundles.junit)
     testImplementation(libs.reflections)
