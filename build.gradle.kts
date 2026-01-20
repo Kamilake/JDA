@@ -59,7 +59,7 @@ plugins {
 ////////////////////////////////////
 
 projectEnvironment {
-    version = Version(major = "6", minor = "2", revision = "1", classifier = null)
+    version = Version(major = "6", minor = "3", revision = "0", classifier = null)
 }
 
 artifactFilters {
@@ -307,7 +307,7 @@ spotless {
     }
 
     java {
-        palantirJavaFormat("2.80.0")
+        palantirJavaFormat("2.84.0")
                 .formatJavadoc(false)
 
         val copyrightHeader = file("gradle/copyright-header.txt")
