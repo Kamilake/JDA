@@ -247,8 +247,7 @@ class WebSocketSendingThread implements Runnable {
                                 .put("guild_id", Long.toUnsignedString(guildId))
                                 .putNull("channel_id")
                                 .put("self_mute", false)
-                                .put("self_deaf", false)
-                                .put("self_video", false));
+                                .put("self_deaf", false));
     }
 
     protected DataObject newVoiceOpen(AudioManager manager, long channel, long guild) {
@@ -260,7 +259,6 @@ class WebSocketSendingThread implements Runnable {
                                 .put("guild_id", guild)
                                 .put("channel_id", channel)
                                 .put("self_mute", manager.isSelfMuted())
-                                .put("self_deaf", manager.isSelfDeafened())
-                                .put("self_video", false));
+                                .put("self_deaf", manager.isSelfDeafened()));
     }
 }
