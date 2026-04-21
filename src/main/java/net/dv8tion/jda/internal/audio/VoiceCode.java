@@ -31,6 +31,8 @@ public final class VoiceCode {
     public static final int USER_BULK_CONNECT = 11;
     public static final int USER_CONNECT = 12;
     public static final int USER_DISCONNECT = 13;
+    public static final int SESSION_UPDATE = 14;
+    public static final int MEDIA_SINK_WANTS = 15;
     public static final int DAVE_PREPARE_TRANSITION = 21;
     public static final int DAVE_EXECUTE_TRANSITION = 22;
     public static final int DAVE_TRANSITION_READY = 23;

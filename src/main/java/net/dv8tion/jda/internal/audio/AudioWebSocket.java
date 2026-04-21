@@ -554,6 +554,11 @@ class AudioWebSocket extends WebSocketAdapter implements DaveProtocolCallbacks {
                 crypto = new DaveCryptoAdapter(CryptoAdapter.getAdapter(encryption, secretKey), daveSession, ssrc);
                 daveSession.onSelectProtocolAck(contentAll.getObject("d").getInt("dave_protocol_version"));
 
+                // Opt out of receiving video streams. Without this, Discord's SFU
+                // treats us as a silent receiver and clamps senders' video bitrate
+                // to ~150 Kbps based on our missing RTCP feedback.
+                send(VoiceCode.MEDIA_SINK_WANTS, DataObject.empty().put("any", 0));
+
                 LOG.debug("Audio connection has finished connecting!");
                 ready = true;
                 MiscUtil.locked(audioConnection.readyLock, audioConnection.readyCondvar::signalAll);
