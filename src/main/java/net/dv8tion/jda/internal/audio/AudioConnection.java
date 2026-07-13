@@ -80,6 +80,11 @@ public class AudioConnection {
 
     private AudioChannel channel;
     private PointerByReference opusEncoder;
+    // [kamibot patch] opus_encode()와 opus_encoder_destroy()의 레이스로 인한 SIGSEGV 방지용 락.
+    // Sending Thread가 인코딩 중일 때 다른 스레드(shutdown/setupSendSystem)가 인코더를 파괴하면
+    // native opus_encode가 NULL 또는 해제된 포인터에 접근하여 JVM 전체가 크래시함.
+    // (hs_err: opus_encode+0x22, RDI=0x0, si_addr=0x60 — 2026-06-27, 2026-07-12 green 크래시)
+    private final Object opusEncoderLock = new Object();
     private ScheduledExecutorService combinedAudioExecutor;
     private IAudioSendSystem sendSystem;
     private Thread receiveThread;
@@ -193,9 +198,11 @@ public class AudioConnection {
             combinedAudioExecutor.shutdownNow();
             combinedAudioExecutor = null;
         }
-        if (opusEncoder != null) {
-            Opus.INSTANCE.opus_encoder_destroy(opusEncoder);
-            opusEncoder = null;
+        synchronized (opusEncoderLock) {
+            if (opusEncoder != null) {
+                Opus.INSTANCE.opus_encoder_destroy(opusEncoder);
+                opusEncoder = null;
+            }
         }
 
         opusDecoders.valueCollection().forEach(Decoder::close);
@@ -308,9 +315,11 @@ public class AudioConnection {
             sendSystem.shutdown();
             sendSystem = null;
 
-            if (opusEncoder != null) {
-                Opus.INSTANCE.opus_encoder_destroy(opusEncoder);
-                opusEncoder = null;
+            synchronized (opusEncoderLock) {
+                if (opusEncoder != null) {
+                    Opus.INSTANCE.opus_encoder_destroy(opusEncoder);
+                    opusEncoder = null;
+                }
             }
         }
     }
@@ -550,8 +559,18 @@ public class AudioConnection {
         }
         ((Buffer) nonEncodedBuffer).flip();
 
-        int result = Opus.INSTANCE.opus_encode(
-                opusEncoder, nonEncodedBuffer, OpusPacket.OPUS_FRAME_SIZE, encoded, encoded.capacity());
+        int result;
+        // [kamibot patch] 인코딩 중 destroy가 끼어들지 못하도록 락으로 보호.
+        // 락 획득 후 필드를 다시 확인해야 함 — encodeAudio()의 null 체크와 이 지점 사이에
+        // shutdown()이 인코더를 파괴하고 null 대입을 완료할 수 있음 (TOCTOU).
+        synchronized (opusEncoderLock) {
+            if (opusEncoder == null) {
+                // 동시 shutdown으로 인코더가 이미 파괴됨 - 이 프레임은 조용히 스킵
+                return null;
+            }
+            result = Opus.INSTANCE.opus_encode(
+                    opusEncoder, nonEncodedBuffer, OpusPacket.OPUS_FRAME_SIZE, encoded, encoded.capacity());
+        }
         if (result <= 0) {
             LOG.error("Received error code from opus_encode(...): {}", result);
             return null;
@@ -664,12 +683,24 @@ public class AudioConnection {
                     printedError = true;
                     return null;
                 }
-                IntBuffer error = IntBuffer.allocate(1);
-                opusEncoder = Opus.INSTANCE.opus_encoder_create(
-                        OpusPacket.OPUS_SAMPLE_RATE, OpusPacket.OPUS_CHANNEL_COUNT, Opus.OPUS_APPLICATION_AUDIO, error);
-                if (error.get() != Opus.OPUS_OK && opusEncoder == null) {
-                    LOG.error("Received error status from opus_encoder_create(...): {}", error.get());
-                    return null;
+                // [kamibot patch] 생성도 락으로 보호 — shutdown 완료 후 인코더를 재생성하면
+                // destroy 주체가 없어 native 메모리가 누수됨.
+                synchronized (opusEncoderLock) {
+                    if (shutdown) {
+                        return null;
+                    }
+                    if (opusEncoder == null) {
+                        IntBuffer error = IntBuffer.allocate(1);
+                        opusEncoder = Opus.INSTANCE.opus_encoder_create(
+                                OpusPacket.OPUS_SAMPLE_RATE,
+                                OpusPacket.OPUS_CHANNEL_COUNT,
+                                Opus.OPUS_APPLICATION_AUDIO,
+                                error);
+                        if (error.get() != Opus.OPUS_OK && opusEncoder == null) {
+                            LOG.error("Received error status from opus_encoder_create(...): {}", error.get());
+                            return null;
+                        }
+                    }
                 }
             }
             return encodeToOpus(rawAudio);
