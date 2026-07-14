@@ -176,7 +176,7 @@ public class GuildImpl implements Guild {
 
         ChannelCacheViewImpl<Channel> channelsView = getJDA().getChannelsView();
         try (UnlockHook hook = channelsView.writeLock()) {
-            getChannels().forEach(channel -> channelsView.remove(channel.getType(), channel.getIdLong()));
+            this.channelCache.forEachUnordered(channel -> channelsView.remove(channel.getType(), channel.getIdLong()));
         }
 
         // Clear audio connection
@@ -194,7 +194,7 @@ public class GuildImpl implements Guild {
         // Use a new HashSet so that we don't actually modify the Member map so it doesn't affect
         // Guild#getMembers for the leave event.
         TLongSet memberIds = getMembersView().keySet(); // copies keys
-        getJDA().getGuildCache().stream()
+        getJDA().getGuildsView().stream()
                 .map(GuildImpl.class::cast)
                 .forEach(g -> memberIds.removeAll(g.getMembersView().keySet()));
         // Remember, everything left in memberIds is removed from the userMap
@@ -626,6 +626,13 @@ public class GuildImpl implements Guild {
             @Nonnull String name, @Nonnull GuildChannel channel, @Nonnull OffsetDateTime startTime) {
         checkPermission(Permission.CREATE_SCHEDULED_EVENTS);
         return new ScheduledEventActionImpl(name, channel, startTime, this);
+    }
+
+    @Nonnull
+    @Override
+    public MessageSearchAction searchMessages() {
+        checkPermission(Permission.MESSAGE_HISTORY);
+        return new MessageSearchActionImpl(this);
     }
 
     @Override

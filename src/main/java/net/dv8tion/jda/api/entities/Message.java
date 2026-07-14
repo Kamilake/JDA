@@ -38,6 +38,7 @@ import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.entities.emoji.CustomEmoji;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.entities.emoji.RichCustomEmoji;
+import net.dv8tion.jda.api.entities.messages.AttachmentFlag;
 import net.dv8tion.jda.api.entities.messages.MessagePoll;
 import net.dv8tion.jda.api.entities.messages.MessageSnapshot;
 import net.dv8tion.jda.api.entities.sticker.GuildSticker;
@@ -380,8 +381,8 @@ public interface Message extends ISnowflake, Formattable {
      * <br>You can check the type of channel this message was sent from using {@link #isFromType(ChannelType)} or {@link #getChannelType()}.
      *
      * <p>Discord does not provide a member object for messages returned by {@link RestAction RestActions} of any kind.
-     * This will return null if the message was retrieved through {@link MessageChannel#retrieveMessageById(long)} or similar means,
-     * unless the member is already cached.
+     * This will return null if the message was retrieved through {@link MessageChannel#retrieveMessageById(long)},
+     * the {@linkplain Guild#searchMessages() search API} or similar means, unless the member is already cached.
      *
      * @return Message author, or {@code null} if the message was not sent in a GuildMessageChannel, or if the message was sent by a Webhook.
      *
@@ -1451,6 +1452,10 @@ public interface Message extends ISnowflake, Formattable {
      *
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#CANNOT_SEND_TO_USER CANNOT_SEND_TO_USER}
      *     <br>If this is a {@link PrivateChannel} and the currently logged in account
+     *         cannot message the recipient User</li>
+     *
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#NO_MUTUAL_GUILDS NO_MUTUAL_GUILDS}
+     *     <br>If this is a {@link net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel PrivateChannel} and the currently logged in account
      *         does not share any Guilds with the recipient User</li>
      *
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#MESSAGE_BLOCKED_BY_AUTOMOD MESSAGE_BLOCKED_BY_AUTOMOD}
@@ -1762,7 +1767,7 @@ public interface Message extends ISnowflake, Formattable {
     }
 
     /**
-     * Forwards this message into the provided channel.
+     * Forwards this message into the provided channel. The message must be readable by the bot.
      *
      * <p><b>A message forward request cannot contain additional content.</b>
      *
@@ -1772,6 +1777,8 @@ public interface Message extends ISnowflake, Formattable {
      *     <br>If the provided reference cannot be resolved to a message</li>
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#FORWARD_CANNOT_HAVE_CONTENT FORWARD_CANNOT_HAVE_CONTENT}
      *     <br>If additional content is sent alongside a forwarded message</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#CANNOT_FORWARD_UNREADABLE_MESSAGE CANNOT_FORWARD_UNREADABLE_MESSAGE}
+     *     <br>If the bot is missing the {@link net.dv8tion.jda.api.requests.GatewayIntent#MESSAGE_CONTENT MESSAGE_CONTENT} intent</li>
      * </ul>
      *
      * @param  channel
@@ -2722,9 +2729,11 @@ public interface Message extends ISnowflake, Formattable {
         private final int size;
         private final int height;
         private final int width;
+        private final int flags;
         private final boolean ephemeral;
         private final String waveform;
         private final double duration;
+        private final ThumbHashPlaceholder placeholder;
 
         private final JDAImpl jda;
 
@@ -2738,9 +2747,11 @@ public interface Message extends ISnowflake, Formattable {
                 int size,
                 int height,
                 int width,
+                int flags,
                 boolean ephemeral,
                 String waveform,
                 double duration,
+                ThumbHashPlaceholder placeholder,
                 JDAImpl jda) {
             this.id = id;
             this.url = url;
@@ -2751,9 +2762,11 @@ public interface Message extends ISnowflake, Formattable {
             this.size = size;
             this.height = height;
             this.width = width;
+            this.flags = flags;
             this.ephemeral = ephemeral;
             this.waveform = waveform;
             this.duration = duration;
+            this.placeholder = placeholder;
             this.jda = jda;
         }
 
@@ -2946,13 +2959,47 @@ public interface Message extends ISnowflake, Formattable {
         }
 
         /**
-         * Whether or not this attachment is marked as spoiler,
-         * based on {@link #getFileName()}.
+         * Whether this attachment is marked as spoiler.
          *
          * @return True if this attachment is marked as spoiler
          */
         public boolean isSpoiler() {
-            return getFileName().startsWith("SPOILER_");
+            return (flags & AttachmentFlag.IS_SPOILER.getRaw()) != 0;
+        }
+
+        /**
+         * The placeholder, if this is an image or video, or {@code null}.
+         *
+         * @return The placeholder or {@code null}
+         *
+         * @see    ThumbHashPlaceholder
+         */
+        @Nullable
+        public ThumbHashPlaceholder getPlaceholder() {
+            return placeholder;
+        }
+
+        /**
+         * The raw flags for this attachment.
+         *
+         * <p>Use {@link #getFlags()} for a typed set instead.
+         *
+         * @return The raw flags
+         *
+         * @see #getFlags()
+         */
+        public int getFlagsRaw() {
+            return flags;
+        }
+
+        /**
+         * The {@linkplain AttachmentFlag flags} of this attachment.
+         *
+         * @return {@link EnumSet} of {@link AttachmentFlag}
+         */
+        @Nonnull
+        public EnumSet<AttachmentFlag> getFlags() {
+            return AttachmentFlag.fromBitField(flags);
         }
 
         @Override
