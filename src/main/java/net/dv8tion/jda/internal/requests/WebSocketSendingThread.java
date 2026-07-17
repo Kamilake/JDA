@@ -38,6 +38,10 @@ import java.util.concurrent.locks.ReentrantLock;
 class WebSocketSendingThread implements Runnable {
     private static final Logger LOG = WebSocketClient.LOG;
 
+    // [kamibot-patch] stuck DISCONNECT/RECONNECT op4 재발사 상한.
+    // 10초 간격 재시도이므로 100회 ≈ 약 1000초(~16분) 시도 후 포기한다.
+    private static final int MAX_STUCK_ATTEMPTS = 100;
+
     private final WebSocketClient client;
     private final JDAImpl api;
     private final ReentrantLock queueLock;
@@ -218,6 +222,31 @@ class WebSocketSendingThread implements Runnable {
             // thus we update it here
             GuildVoiceState voiceState = guild.getSelfMember().getVoiceState();
             client.updateAudioConnection0(guild.getIdLong(), voiceState.getChannel());
+
+            // [kamibot-patch] stuck-queue 상한 포기.
+            // DISCONNECT/RECONNECT를 보냈는데 voiceState상 봇이 여전히 채널에 있으면
+            // VOICE_STATE_UPDATE(channel=null)이 오지 않아 큐에서 영원히 retry 돈다
+            // (게이트웨이 프록시 장애 시). 이 상태가 MAX_STUCK_ATTEMPTS회 이상 지속되면
+            // 요청을 큐에서 제거해 무한 재발사로 인한 큐 포화를 막는다.
+            // updateAudioConnection0가 위에서 이미 정상 완료된 요청은 제거했으므로,
+            // 여기서 큐에 남아있다는 것은 아직 반영되지 않았다는 뜻이다.
+            if (stage == ConnectionStage.DISCONNECT || stage == ConnectionStage.RECONNECT) {
+                net.dv8tion.jda.api.entities.channel.middleman.AudioChannel voiceCh =
+                        voiceState != null ? voiceState.getChannel() : null;
+                if (voiceCh != null) {
+                    int attempts = audioRequest.incrementAttemptCount();
+                    if (attempts >= MAX_STUCK_ATTEMPTS) {
+                        LOG.warn("[kamibot-patch] Giving up stuck op4 after {} attempts, removing from queue: "
+                                        + "stage={} guild={} requestCh={} voiceCh={}",
+                                attempts, stage, guildId, channelId, voiceCh.getIdLong());
+                        client.removeAudioConnection(guildId);
+                    } else {
+                        LOG.warn("[STUCK-CANDIDATE] op4 stage={} sent but voiceState still in channel "
+                                        + "(attempt {}/{}): guild={} requestCh={} voiceCh={}",
+                                stage, attempts, MAX_STUCK_ATTEMPTS, guildId, channelId, voiceCh.getIdLong());
+                    }
+                }
+            }
         }
     }
 

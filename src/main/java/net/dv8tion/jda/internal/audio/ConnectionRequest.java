@@ -26,6 +26,10 @@ public class ConnectionRequest {
     protected long nextAttemptEpoch;
     protected ConnectionStage stage;
     protected long channelId;
+    // [kamibot-patch] DISCONNECT/RECONNECT OP4가 게이트웨이 응답(VSU) 없이 재발사된 횟수.
+    // 게이트웨이 프록시 장애로 VOICE_STATE_UPDATE(channel=null)이 영영 오지 않으면
+    // 이 요청이 10초마다 무한 retry되어 큐가 포화되므로, 상한을 두고 포기(제거)하기 위한 카운터.
+    protected int attemptCount;
 
     public ConnectionRequest(Guild guild) {
         this.stage = ConnectionStage.DISCONNECT;
@@ -40,6 +44,11 @@ public class ConnectionRequest {
     }
 
     public void setStage(ConnectionStage stage) {
+        // [kamibot-patch] stage 전환은 새로운 연결 시도 사이클의 시작이므로
+        // stuck 재시도 카운터를 리셋한다 (직전 stage에서 누적된 실패를 이월하지 않음).
+        if (this.stage != stage) {
+            this.attemptCount = 0;
+        }
         this.stage = stage;
     }
 
@@ -49,6 +58,16 @@ public class ConnectionRequest {
 
     public void setNextAttemptEpoch(long epochMillis) {
         this.nextAttemptEpoch = epochMillis;
+    }
+
+    /** [kamibot-patch] 재발사 횟수를 1 증가시키고 누적값을 반환한다. */
+    public int incrementAttemptCount() {
+        return ++attemptCount;
+    }
+
+    /** [kamibot-patch] 누적 재발사 횟수. */
+    public int getAttemptCount() {
+        return attemptCount;
     }
 
     public AudioChannel getChannel(JDA api) {
