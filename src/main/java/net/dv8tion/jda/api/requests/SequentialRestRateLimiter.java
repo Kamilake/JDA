@@ -127,6 +127,20 @@ public final class SequentialRestRateLimiter implements RestRateLimiter {
         return isStopped;
     }
 
+    /**
+     * The number of requests currently waiting in all rate limit buckets.
+     *
+     * <p>This is measured directly from the internal bucket state, so it reflects
+     * retried requests correctly and cannot drift like an externally maintained counter.
+     *
+     * @return Total pending request count across all buckets
+     */
+    public int getPendingRequestCount() {
+        return MiscUtil.locked(lock, () -> buckets.values().stream()
+                .mapToInt(bucket -> bucket.getRequests().size())
+                .sum());
+    }
+
     @Override
     public int cancelRequests() {
         return MiscUtil.locked(lock, () -> {
