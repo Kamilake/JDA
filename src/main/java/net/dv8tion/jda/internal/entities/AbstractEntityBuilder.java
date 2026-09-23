@@ -44,13 +44,16 @@ public abstract class AbstractEntityBuilder {
     }
 
     protected void configureCategory(DataObject json, CategoryMixin<?> channel) {
-        channel.setName(json.getString("name")).setPosition(json.getInt("position"));
+        channel.setName(json.getString("name"))
+                .setPosition(json.getInt("position"))
+                .setFlags(json.getInt("flags", 0));
     }
 
     protected void configureTextChannel(DataObject json, TextChannelMixin<?> channel) {
         channel.setParentCategory(json.getLong("parent_id", 0))
                 .setLatestMessageIdLong(json.getLong("last_message_id", 0))
                 .setName(json.getString("name"))
+                .setFlags(json.getInt("flags", 0))
                 .setTopic(json.getString("topic", null))
                 .setPosition(json.getInt("position"))
                 .setNSFW(json.getBoolean("nsfw"))
@@ -62,6 +65,7 @@ public abstract class AbstractEntityBuilder {
         channel.setParentCategory(json.getLong("parent_id", 0))
                 .setLatestMessageIdLong(json.getLong("last_message_id", 0))
                 .setName(json.getString("name"))
+                .setFlags(json.getInt("flags", 0))
                 .setTopic(json.getString("topic", null))
                 .setPosition(json.getInt("position"))
                 .setNSFW(json.getBoolean("nsfw"));
@@ -71,6 +75,7 @@ public abstract class AbstractEntityBuilder {
         channel.setParentCategory(json.getLong("parent_id", 0))
                 .setLatestMessageIdLong(json.getLong("last_message_id", 0))
                 .setName(json.getString("name"))
+                .setFlags(json.getInt("flags", 0))
                 .setStatus(json.getString("status", ""))
                 .setPosition(json.getInt("position"))
                 .setUserLimit(json.getInt("user_limit", 0))
@@ -86,6 +91,7 @@ public abstract class AbstractEntityBuilder {
         channel.setParentCategory(json.getLong("parent_id", 0))
                 .setLatestMessageIdLong(json.getLong("last_message_id", 0))
                 .setName(json.getString("name"))
+                .setFlags(json.getInt("flags", 0))
                 .setPosition(json.getInt("position"))
                 .setBitrate(json.getInt("bitrate"))
                 .setUserLimit(json.getInt("user_limit", 0))
@@ -195,6 +201,7 @@ public abstract class AbstractEntityBuilder {
     protected void configureMember(DataObject memberJson, MemberMixin<?> member) {
         member.setNickname(memberJson.getString("nick", null));
         member.setAvatarId(memberJson.getString("avatar", null));
+        member.setBannerId(memberJson.getString("banner", null));
         if (!memberJson.isNull("flags")) {
             member.setFlags(memberJson.getInt("flags"));
         }
