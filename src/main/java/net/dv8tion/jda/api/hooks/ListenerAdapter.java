@@ -85,6 +85,7 @@ import net.dv8tion.jda.api.events.stage.StageInstanceDeleteEvent;
 import net.dv8tion.jda.api.events.stage.update.GenericStageInstanceUpdateEvent;
 import net.dv8tion.jda.api.events.stage.update.StageInstanceUpdatePrivacyLevelEvent;
 import net.dv8tion.jda.api.events.stage.update.StageInstanceUpdateTopicEvent;
+import net.dv8tion.jda.api.events.subscription.SubscriptionUpdateEvent;
 import net.dv8tion.jda.api.events.sticker.GenericGuildStickerEvent;
 import net.dv8tion.jda.api.events.sticker.GuildStickerAddedEvent;
 import net.dv8tion.jda.api.events.sticker.GuildStickerRemovedEvent;
@@ -580,6 +581,9 @@ public abstract class ListenerAdapter implements EventListener {
     public void onEntitlementUpdate(@Nonnull EntitlementUpdateEvent event) {}
 
     public void onEntitlementDelete(@Nonnull EntitlementDeleteEvent event) {}
+
+    // Subscription events
+    public void onSubscriptionUpdate(@Nonnull SubscriptionUpdateEvent event) {}
 
     // Debug Events
     public void onHttpRequest(@Nonnull HttpRequestEvent event) {}
